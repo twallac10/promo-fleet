@@ -21,3 +21,7 @@ tasks:
     desc: Every pinned image has linux/amd64 and linux/arm64 builds
     cmds:
       - scripts/images-check.sh
+  status:
+    desc: Flux state (full messages) and pod restarts per tier
+    cmds:
+      - scripts/status.sh {{.CLI_ARGS}}
