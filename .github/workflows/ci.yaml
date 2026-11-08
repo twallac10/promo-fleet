@@ -1,0 +1,24 @@
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      TEMPLATE_DIR: ${{ github.workspace }}/.template
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: twallac10/promo-app-template
+          path: .template
+      - uses: fluxcd/flux2/action@03cd91fc037a0004d59c196777c5fdf2f5dc3b9d # v2.10.0
+        with:
+          version: 2.10.0
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz | tar xz -C /usr/local/bin kubeconform
+      - run: tests/run.sh

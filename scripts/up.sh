@@ -20,5 +20,7 @@ for t in $tiers; do
   flux --context "$ctx" reconcile source git flux-system
   echo "== $t: waiting for Kustomizations to be Ready"
   kubectl --context "$ctx" -n flux-system wait kustomizations --all --for=condition=Ready --timeout=20m
-  kubectl --context "$ctx" wait helmreleases -A --all --for=condition=Ready --timeout=20m
+  if [ -n "$(kubectl --context "$ctx" get helmreleases -A -o name)" ]; then
+    kubectl --context "$ctx" wait helmreleases -A --all --for=condition=Ready --timeout=20m
+  fi
 done
