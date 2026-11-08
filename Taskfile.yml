@@ -17,3 +17,7 @@ tasks:
     desc: Static tests (LIVE=1 for cluster tests)
     cmds:
       - tests/run.sh
+  images:check:
+    desc: Every pinned image has linux/amd64 and linux/arm64 builds
+    cmds:
+      - scripts/images-check.sh
