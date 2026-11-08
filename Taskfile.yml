@@ -1,0 +1,19 @@
+version: '3'
+
+tasks:
+  up:
+    desc: Create and sync tier clusters one at a time (task up -- dev for one tier)
+    cmds:
+      - scripts/up.sh {{.CLI_ARGS}}
+  down:
+    desc: Delete tier clusters (task down -- dev for one tier)
+    cmds:
+      - scripts/down.sh {{.CLI_ARGS}}
+  repos:create:
+    desc: Create missing app repos from promo-app-template
+    cmds:
+      - scripts/repos-create.sh
+  lint:
+    desc: Static tests (LIVE=1 for cluster tests)
+    cmds:
+      - tests/run.sh

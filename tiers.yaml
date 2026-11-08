@@ -1,0 +1,15 @@
+# Tier chain, in promotion order. Going to more tiers is config only.
+# A tier is a list of clusters; each demo tier has one (see NOTES.md).
+tiers:
+  - name: dev
+    clusters: [kind-tier-dev]
+    requiresApproval: false
+    onFailure: hold
+  - name: stg
+    clusters: [kind-tier-stg]
+    requiresApproval: false
+    onFailure: rollback
+  - name: prd
+    clusters: [kind-tier-prd]
+    requiresApproval: true
+    onFailure: rollback

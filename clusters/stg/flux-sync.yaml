@@ -1,0 +1,24 @@
+# Read-only sync of this tier's path from the public fleet repo (no write token).
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/twallac10/promo-fleet
+  ref:
+    branch: main
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./clusters/stg
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
