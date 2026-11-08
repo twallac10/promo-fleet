@@ -42,3 +42,15 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
   have migrated stored objects to the new version. Rolling back after a CRD version change can strand
   stored objects. Safe for patch releases that don't touch CRDs; check `kyverno-api` diff first.
 - **kyverno-policies, prometheus, otel-collector, podinfo:** no CRDs. Safe to auto-roll back.
+
+## Live results
+### dev, first bring-up (2026-11-08)
+- `task up -- dev` from nothing to every Kustomization and HelmRelease Ready, with no manual steps.
+- Helm tests passed on first install: kyverno (3 hooks, including the deny dry-run), kyverno-policies (1),
+  prometheus (2, including canary target up), otel-collector (2, including accepted spans).
+- 26 pods, 0 restarts. Node right after Ready: ~0.22 core, 2.05 GiB (Docker VM 6 CPU / 12.5 GiB).
+- Guardrail: Kyverno generated the native VAP `vpol-oci-only-charts`; a server-side dry-run of a
+  `HelmRepository` is denied by the API server.
+- Every OCIRepository in the cluster is under `oci://ghcr.io/twallac10/charts/`.
+- kyverno-policies: all 11 policies `Audit` in dev.
+- Not yet done: 30-minute stability watch, stg and prd, idle-CPU measurement.
