@@ -5,4 +5,4 @@
 set -euo pipefail
 dir=$1 app=$2
 grep -rlw example "$dir/base" "$dir/tiers" "$dir/chart" "$dir/mirror" |
-  while read -r f; do sed -i "" "s/[[:<:]]example[[:>:]]/$app/g" "$f"; done
+  while read -r f; do perl -pi -e "s/\\bexample\\b/$app/g" "$f"; done
