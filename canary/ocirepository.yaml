@@ -10,7 +10,7 @@ spec:
   interval: 1h
   url: oci://ghcr.io/twallac10/charts/podinfo
   ref:
-    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    digest: sha256:9d6f49d60d79039c239ef28a2fc86dedc16540f55d037fc9e792156e81ab3c27
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy

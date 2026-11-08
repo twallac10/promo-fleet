@@ -55,3 +55,8 @@ test_guardrails_enforced_natively() {
     [ "$(echo "$pol" | yq '.spec.autogen.validatingAdmissionPolicy.enabled')" = true ] || fail "$p must generate a native VAP"
   done
 }
+
+test_canary_digest_pinned() {
+  d=$(yq .spec.ref.digest "$ROOT/canary/ocirepository.yaml")
+  echo "$d" | grep -Eq '^sha256:[0-9a-f]{64}$' && ! echo "$d" | grep -q '^sha256:0\{64\}$' || fail "canary digest not pinned: $d"
+}
