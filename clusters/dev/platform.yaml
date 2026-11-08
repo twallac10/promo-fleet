@@ -1,0 +1,32 @@
+# Platform pieces from this repo that are not promoted: guardrails and canary.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: guardrails
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./guardrails
+  prune: true
+  wait: true
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: app-kyverno
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: canary
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./canary
+  prune: true
+  wait: true
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system

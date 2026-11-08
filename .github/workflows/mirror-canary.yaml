@@ -1,0 +1,33 @@
+# Copy the upstream canary chart (podinfo) into our GHCR prefix, unchanged.
+# Never moves a tag: an existing version is left alone. Prints the digest to
+# pin in canary/ocirepository.yaml.
+name: mirror-canary
+on:
+  push:
+    branches: [main]
+    paths: [canary/source.yaml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: Mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          src=$(yq .upstream canary/source.yaml); ver=$(yq .version canary/source.yaml)
+          name=${src##*/}; dest=oci://ghcr.io/twallac10/charts
+          echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          if helm show chart "$dest/$name" --version "$ver" >/dev/null 2>&1; then
+            helm pull "$dest/$name" --version "$ver" -d "$RUNNER_TEMP" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            helm pull "$src" --version "$ver" -d dist
+            helm push "dist/$name-$ver.tgz" "$dest" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,1 @@
+ghcr.io/stefanprodan/podinfo:6.17.0

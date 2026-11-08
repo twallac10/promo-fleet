@@ -1,0 +1,16 @@
+# podinfo: identical in every tier, never promoted. Something real for our tests to exercise.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: podinfo
+  namespace: canary
+  annotations:
+    promo.twallac10.dev/chart-version: 6.17.0
+spec:
+  interval: 1h
+  url: oci://ghcr.io/twallac10/charts/podinfo
+  ref:
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

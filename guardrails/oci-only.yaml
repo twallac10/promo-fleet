@@ -1,0 +1,24 @@
+# Charts come only from our GHCR prefix (stand-in for ACR). Enforced in every
+# tier. Kyverno generates a native ValidatingAdmissionPolicy from this, so the
+# API server enforces it even where Kyverno's webhook is excluded (flux-system)
+# or Kyverno is down.
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: oci-only-charts
+spec:
+  validationActions: [Deny]
+  autogen:
+    validatingAdmissionPolicy:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [source.toolkit.fluxcd.io]
+        apiVersions: ["*"]
+        operations: [CREATE, UPDATE]
+        resources: [helmrepositories, ocirepositories]
+  validations:
+    - expression: "object.kind != 'HelmRepository'"
+      message: "HelmRepository is not allowed: charts come only from oci://ghcr.io/twallac10/charts/"
+    - expression: "object.kind != 'OCIRepository' || object.spec.url.startsWith('oci://ghcr.io/twallac10/charts/')"
+      message: "OCIRepository must use oci://ghcr.io/twallac10/charts/"

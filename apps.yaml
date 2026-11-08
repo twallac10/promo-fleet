@@ -13,4 +13,4 @@ apps:
     dependsOn: [kyverno, canary]
   - name: otel-collector
     repo: promo-otel-collector
-    dependsOn: [kyverno, canary]
+    dependsOn: [kyverno]

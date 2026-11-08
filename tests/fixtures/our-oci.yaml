@@ -1,0 +1,8 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: guardrail-test-ours
+  namespace: default
+spec:
+  interval: 1h
+  url: oci://ghcr.io/twallac10/charts/podinfo
