@@ -31,8 +31,10 @@ test_dependson_order() {
 }
 
 test_no_helmrepository() {
-  ! grep -rl --include='*.yaml' --exclude-dir=fixtures --exclude-dir=.git -E '^kind: HelmRepository' "$ROOT" || fail "HelmRepository found"
-  bad=$(find "$ROOT" -name '*.yaml' -not -path '*/fixtures/*' -not -path '*/.git/*' -exec yq 'select(.kind=="OCIRepository") | .spec.url' {} \; |
+  # Only files this repo tracks: CI checks other repos out inside the workspace.
+  files=$(cd "$ROOT" && git ls-files '*.yaml' | grep -v '^tests/fixtures/')
+  ! (cd "$ROOT" && grep -l -E '^kind: HelmRepository' $files) || fail "HelmRepository found"
+  bad=$(cd "$ROOT" && for f in $files; do yq 'select(.kind=="OCIRepository") | .spec.url' "$f"; done |
     grep -v -- '---' | grep -v '^oci://ghcr.io/twallac10/charts/' || true)
   [ -z "$bad" ] || fail "OCIRepository outside our prefix: $bad"
 }
