@@ -12,7 +12,7 @@ for t in $tiers; do
   echo "=== $t ($ctx)"
   for app in $(yq '.apps[].name' apps.yaml); do
     repo=twallac10/promo-$app
-    dep=$(gh api "repos/$repo/deployments?environment=$t&per_page=1" --jq '.[0] // empty | "\(.id) \(.payload.digest // "-" | .[7:19]) \(.created_at)"' 2>/dev/null)
+    dep=$(gh api "repos/$repo/deployments?environment=$t&task=promote&per_page=1" --jq '.[0] // empty | "\(.id) \(.payload.digest // "-" | .[7:19]) \(.created_at)"' 2>/dev/null)
     if [ -z "$dep" ]; then echo "  deployment $app: none"; continue; fi
     set -- $dep
     state=$(gh api "repos/$repo/deployments/$1/statuses?per_page=1" --jq '.[0].state // "unknown"' 2>/dev/null)
