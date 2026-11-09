@@ -25,9 +25,13 @@ jobs:
           src=$(yq .upstream canary/source.yaml); ver=$(yq .version canary/source.yaml)
           name=${src##*/}; dest=oci://ghcr.io/twallac10/charts
           echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
-          if helm show chart "$dest/$name" --version "$ver" >/dev/null 2>&1; then
+          if out=$(helm show chart "$dest/$name" --version "$ver" 2>&1); then
             helm pull "$dest/$name" --version "$ver" -d "$RUNNER_TEMP" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
-          else
+          elif echo "$out" | grep -q ': not found$'; then
             helm pull "$src" --version "$ver" -d dist
             helm push "dist/$name-$ver.tgz" "$dest" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            # Any other error (network, auth) must not be read as "absent": pushing would move the tag.
+            echo "::error::cannot tell whether $name:$ver exists: $out"
+            exit 1
           fi
