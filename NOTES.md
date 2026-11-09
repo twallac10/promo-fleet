@@ -59,3 +59,16 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
 - An earlier attempt was cut short when the Mac slept (18:17–18:30): `sleep` stops counting while macOS
   sleeps, so the watch stalled. The cluster survived sleep and wake with 0 restarts.
 - Projection for 3 tiers: ~0.75 core, ~6.5 GiB of the 6 CPU / 12.5 GiB Docker VM.
+
+### All three tiers (2026-11-08, ~19:15)
+- stg and prd each came up from nothing with `task up -- <tier>`; every Helm test passed on first install.
+- dev, stg, prd running together: 26 pods each, 0 restarts. Idle ~0.13 core each; memory dev 2.13 GiB,
+  stg 1.63 GiB, prd 2.40 GiB (~6.2 GiB total of the 12.5 GiB VM).
+- Guardrail (native VAP) in every tier: `HelmRepository` and a foreign `OCIRepository` denied; our prefix allowed.
+- kyverno-policies: 11 policies `Audit` in dev and stg, `Deny` (Enforce) in prd. A privileged pod is
+  rejected in prd; none of prd's own pods were blocked.
+- stg and prd HelmReleases: `upgrade.remediation` = rollback, `remediateLastFailure: true`; dev holds.
+- Tier isolation, live: changing `promo-prometheus/tiers/dev/tier.yaml` (retention 2h → 3h) moved dev's
+  Prometheus release to revision 2 with tests passing; stg and prd stayed at revision 1 (6h, 12h). Reverted.
+- Caveat: `flux reconcile ks --with-source` on all three tiers at once took more than 5 minutes to
+  return even though dev finished in about 1 minute. Prefer checking HelmRelease status directly.
