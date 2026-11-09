@@ -184,7 +184,7 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
   approval and merged themselves. stg tested OK and opened prd PRs whose gates **waited**. Approving
   prd for promo-kyverno #7 merged it; prd upgraded to 3.9.2-4 with a `success` Deployment and no
   further PR. Deployments created by the promote workflow still record under the main-only policy.
-- Sneaky PR (prometheus, `promote/stg` also changing `tier.yaml`): `promotion-gate` failed on files;
+- Sneaky PR (prometheus, `promote/stg` also changing `tier.yaml`): `guardrails` failed on files;
   `promotion-gate` ran anyway and failed (fail-closed, live).
 - Hand-made PR (otel, `promote/prd` with a release stg never ran): failed on the release check. It
   first *asked for prd approval* before failing (the environment came from `guardrails` even though
