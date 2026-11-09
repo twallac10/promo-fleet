@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Test stub for gh: answers the reads gh-envs.sh makes with empty results and
+# fails any write (logged as WRITE to $GH_LOG), so --dry-run can be checked.
+all="$*"
+case "$all" in
+  *" -X "*|*--input*|*" -f "*|*" -F "*) echo "WRITE $all" >> "${GH_LOG:-/dev/null}"; exit 99;;
+  "api user"*) echo 1;;
+  *deployment-branch-policies*) echo "";;
+  *) echo "";;
+esac

@@ -54,6 +54,31 @@ GitHub Actions can't reach the clusters, so a dispatch event is trusted as the c
 - **On AKS:** use a GitHub App installation token minted per event (short-lived) or workload
   identity federation, rather than a long-lived PAT in a Secret.
 
+## Environments and the gate (Phase 3)
+Every PR to an app repo's `main` needs one check, **`promotion-gate`** (branch protection; set up by
+`task gh:envs`). The app repo's `gate.yaml` runs two jobs: `guardrails` (the composite action in
+`promo-workflows/actions/guardrails`), then `promotion-gate` in the environment `guardrails` chose.
+
+| PR (by branch name) | Checks | Environment |
+|---|---|---|
+| `promote/<t>` | only `tiers/<t>/release.yaml` changed; it equals the previous tier's on main; that tier's latest Deployment is `success` for the same release id; sources; gitleaks | `<t>` |
+| `revert/<t>` | only `tiers/<t>/release.yaml`; it equals the file before main's last change to it; `<t>`'s latest Deployment is `failure`; sources; gitleaks | `<t>` |
+| anything else | no `release.yaml` outside the first tier (later tiers change only by promotion); sources; gitleaks | last tier it touches, or none |
+
+- **Approval = deploy.** Promotion, revert and mirror PRs enable squash auto-merge. dev and stg
+  gates pass at once; prd's waits for your environment approval, then the PR merges itself.
+- **Fails closed.** GitHub counts a skipped required check as passed, so `promotion-gate` runs
+  `if: always()` and fails unless `guardrails` succeeded.
+- **No PR code runs in the gate.** It checks out `main`, reads PR files with `git show`, and
+  computes release ids with main's `release-id.sh`.
+- **Branch policy is `main` + `refs/pull/*/merge`**, not main only: GitHub matches the policy
+  against the run's `GITHUB_REF`, and a PR's gate runs on its merge ref. Only a merge to `main`
+  deploys, so this doesn't widen what can deploy.
+- **Revert PRs** are gated like promotions, so a forged failure event (Trust boundary) can at worst
+  open a revert to the release that ran before, which still needs the tier's latest Deployment to
+  be a failure, and prd's approval.
+- Labels are informational; the gate goes by branch name, which only people with push access set.
+
 ## Richer evidence (design, not built)
 Today the evidence is the Helm tests. To add Prometheus/Dynatrace queries or Testkube runs:
 - Add a **verification Kustomization** per app per tier (`verify-<app>`), `dependsOn` the app's
