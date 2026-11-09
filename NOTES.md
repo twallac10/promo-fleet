@@ -145,7 +145,7 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
 - Stale event (old release id): `status=stale`, no Deployment. Forged tier `dev;x`: rejected at
   parse, run fails.
 - Revert path (simulated stg upgrade failure for kyverno-policies): `failure` Deployment in stg and
-  a revert PR (label `revert`) changing only `tiers/stg/release.yaml`. Closed (test artifact).
+  a revert PR (label `revert`) changing only `tiers/stg/release.yaml` (kyverno-policies #4, a test artifact to close unmerged).
 - **Gaps:** test pod logs stay in-cluster only (hook pods kept until the next test run; the
   Deployment carries Flux's message, not the logs). Re-testing a release after an automatic
   rollback is Phase 4 (`demo:stg-rollback`).
