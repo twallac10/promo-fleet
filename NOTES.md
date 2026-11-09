@@ -72,3 +72,11 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
   Prometheus release to revision 2 with tests passing; stg and prd stayed at revision 1 (6h, 12h). Reverted.
 - Caveat: `flux reconcile ks --with-source` on all three tiers at once took more than 5 minutes to
   return even though dev finished in about 1 minute. Prefer checking HelmRelease status directly.
+
+### Full `task down && task up` on the new machine (2026-11-09)
+- Machine: Apple Silicon (arm64), 10 cores. Docker VM: 8 CPUs, 15.6 GiB. Flux 2.10.0, kind 0.33.0.
+- One `task up`, no manual steps: dev, stg, prd from nothing to every Kustomization and HelmRelease Ready
+  in ~8.5 minutes (07:09:50–07:18:12). Every Helm test passed on first install in every tier.
+- 26 pods per tier, 0 restarts.
+- Idle, a few minutes after Ready (5 samples): ~0.1 core per tier (spikes to ~0.3); memory dev 2.24 GiB,
+  stg 2.25 GiB, prd 2.31 GiB (~6.8 GiB total of the 15.6 GiB VM).
