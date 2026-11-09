@@ -20,6 +20,46 @@ would record one Deployment per cluster (environment `<tier>`, payload carrying 
 and open the next tier's PR only when every cluster in the tier has a `success` Deployment for the
 same `release.yaml` commit. Any `failure` in the tier blocks promotion.
 
+## Notifications and the dispatch token
+- Each app repo's `tiers/<tier>/notify.yaml` holds a `githubdispatch` Provider and two Alerts on that
+  tier's HelmRelease: `promote-success` (info, `^Helm test succeeded`, fires after tests on install
+  and upgrade) and `promote-failure` (error, `^Helm (install|upgrade|test) failed`). Both add
+  `tier` and `app` to the event metadata. `notify.yaml` is tier-only and never promoted.
+- **Release id.** Each `release.yaml` sets the HelmRelease annotation
+  `event.toolkit.fluxcd.io/release-id`: a sha256 of the file without that annotation
+  (`scripts/release-id.sh` in each app repo). Flux copies `event.toolkit.fluxcd.io/` annotations into
+  event metadata, so each event names the exact release (digest and shared values) it is about.
+  A copied `release.yaml` keeps its id, so ids match across tiers.
+- **Token.** One fine-grained PAT per tier (`promo-dispatch-<tier>`): resource owner `twallac10`,
+  the four app repos, permission **Contents: write** (the minimum GitHub accepts for
+  `repository_dispatch`), 90-day expiry. Save it to `~/.config/promo/dispatch-<tier>.token`
+  (`chmod 600`). `task up` loads it into every app namespace as Secret `promo-dispatch` and refuses
+  to start a tier without it.
+
+## Trust boundary
+GitHub Actions can't reach the clusters, so a dispatch event is trusted as the cluster's attestation.
+- **What the checks stop:** stale and out-of-order events (the event's digest and release id must
+  equal `tiers/<tier>/release.yaml` on `main`), and malformed or injected payload fields (each field
+  is checked against a strict pattern before use; payload values are never interpolated into shell).
+- **What they don't stop:** a forged event that carries the correct digest and release id. Both are
+  public in Git, so anyone holding a dispatch token can claim a release passed. The token is the
+  boundary: it lives only in-cluster, one per tier (revoke one tier without the others).
+- **Scope is wider than ideal:** Contents: write could also push to the app repos. GitHub has no
+  dispatch-only permission. Branch protection (Phase 3) limits what a leaked token can merge.
+- **On AKS:** use a GitHub App installation token minted per event (short-lived) or workload
+  identity federation, rather than a long-lived PAT in a Secret.
+
+## Richer evidence (design, not built)
+Today the evidence is the Helm tests. To add Prometheus/Dynatrace queries or Testkube runs:
+- Add a **verification Kustomization** per app per tier (`verify-<app>`), `dependsOn` the app's
+  Kustomization, that applies the checks (a Job, a Testkube TestWorkflow or a HelmReleaseTest) and
+  health-checks their result with Flux CEL health checks.
+- Name Jobs per release (suffix: the release id's first 12 hex chars) so each release re-runs them;
+  Jobs are immutable.
+- Move `promote-success` from the HelmRelease to the verification Kustomization: it's the first
+  document in `notify.yaml`, marked as the swappable evidence source. Carry the release id on the
+  Kustomization (same annotation). **The promote workflow doesn't change.**
+
 ## Upstream inventory (pins as of 2026-11-08)
 Rendered with the intended lightweight values (Kyverno background + cleanup controllers off;
 Prometheus alertmanager, kube-state-metrics, node-exporter, pushgateway off; OTel `mode=deployment`,

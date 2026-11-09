@@ -67,3 +67,16 @@ test_repos_sync_copies_template_owned_only() {
   ! grep -rlw example "$d/.github" "$d/scripts" "$d/tests" "$d/tiers" || fail "example left after sync"
   (cd "$d" && ROOT="$d" tests/run.sh >/dev/null) || fail "synced repo tests fail"
 }
+
+test_dispatch_secret_manifests() {
+  dir=$(mktemp -d); printf 'tok-123\n' > "$dir/dispatch-dev.token"
+  out=$(PROMO_DISPATCH_DIR="$dir" "$ROOT/scripts/dispatch-secret.sh" dev)
+  for a in $(yq '.apps[].name' "$ROOT/apps.yaml"); do
+    echo "$out" | yq -e "select(.kind==\"Namespace\" and .metadata.name==\"$a\")" >/dev/null || fail "no Namespace $a"
+    [ "$(echo "$out" | yq "select(.kind==\"Secret\" and .metadata.namespace==\"$a\" and .metadata.name==\"promo-dispatch\") | .stringData.token")" = tok-123 ] \
+      || fail "Secret promo-dispatch in $a missing or wrong token"
+  done
+  [ "$(echo "$out" | yq 'select(.kind=="Secret") | .metadata.name' | grep -vc -- '---')" = "$(yq '.apps | length' "$ROOT/apps.yaml")" ] || fail "want one Secret per app"
+  if err=$(PROMO_DISPATCH_DIR="$dir" "$ROOT/scripts/dispatch-secret.sh" stg 2>&1 >/dev/null); then fail "missing token file must fail"; fi
+  echo "$err" | grep -q "$dir/dispatch-stg.token" || fail "error must name the token path: $err"
+}

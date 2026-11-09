@@ -9,6 +9,7 @@ tiers="$*"
 for t in $tiers; do
   yq -e ".tiers[] | select(.name==\"$t\")" tiers.yaml >/dev/null || { echo "unknown tier: $t" >&2; exit 1; }
   ctx=kind-tier-$t
+  scripts/dispatch-secret.sh "$t" >/dev/null # fail before creating anything if the token is missing
   if kind get clusters | grep -qx "tier-$t"; then
     echo "== $t: cluster exists"
   else
@@ -16,6 +17,7 @@ for t in $tiers; do
     kind create cluster --config "kind/$t.yaml"
   fi
   flux install --context "$ctx"
+  scripts/dispatch-secret.sh "$t" | kubectl --context "$ctx" apply -f -
   kubectl --context "$ctx" apply -f "clusters/$t/flux-sync.yaml"
   flux --context "$ctx" reconcile source git flux-system
   echo "== $t: waiting for Kustomizations to be Ready"
