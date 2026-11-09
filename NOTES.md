@@ -46,6 +46,11 @@ GitHub Actions can't reach the clusters, so a dispatch event is trusted as the c
   boundary: it lives only in-cluster, one per tier (revoke one tier without the others).
 - **Scope is wider than ideal:** Contents: write could also push to the app repos. GitHub has no
   dispatch-only permission. Branch protection (Phase 3) limits what a leaked token can merge.
+- **Forged failure events open revert PRs.** A token holder can send a failure event with the
+  current digest and id for a rollback tier; the workflow opens a revert PR to the previous
+  `release.yaml`. Once Phase 3 auto-merges revert PRs in non-approval tiers, that becomes a way to
+  roll stg back (not forward: it only restores what was there). Phase 3 should keep revert PRs
+  behind the same guardrails, or require approval for them.
 - **On AKS:** use a GitHub App installation token minted per event (short-lived) or workload
   identity federation, rather than a long-lived PAT in a Secret.
 
@@ -120,3 +125,27 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
 - 26 pods per tier, 0 restarts.
 - Idle, a few minutes after Ready (5 samples): ~0.1 core per tier (spikes to ~0.3); memory dev 2.24 GiB,
   stg 2.25 GiB, prd 2.31 GiB (~6.8 GiB total of the 15.6 GiB VM).
+
+### Phase 2: notifications and promote, live (2026-11-09)
+- Fresh `task up` with dispatch tokens: every app reported from every tier. Latest Deployment
+  `success` for all 12 app/tier pairs; exactly one promotion PR (kyverno-policies dev 3.9.2-2 →
+  stg, diff only `tiers/stg/release.yaml`, label `promotion`, evidence table in the body).
+- Real event payloads: `client_payload.metadata` carries `app`, `tier` (Alert `eventMetadata`),
+  `release-id` (from the HelmRelease's `event.toolkit.fluxcd.io/release-id` annotation),
+  `oci-digest`, `revision` and `token` (helm-controller). Success = reason `TestSucceeded`,
+  severity `info`; test failure = `TestFailed`, severity `error`. All 16+ live events parsed and
+  verified against Git.
+- **Found live:** kyverno's test policy, as a Helm test hook, raced Kyverno's own CRDs on first
+  install (Helm couldn't map `ValidatingPolicy`), so stg and prd reported `TestFailed` once before
+  passing. Fixed in promo-kyverno 3.9.2-3/-4 (the test pod creates its own policy, RBAC limited to
+  it). The failure also showed revert PRs must follow only failed upgrades: promo-workflows
+  v0.4.1 skips them after a failed first install (nothing to roll back to).
+- Failure in dev (OTel health port off in dev `tier.yaml`): HelmRelease `TestFailed` on v2,
+  `failure` Deployment in dev, no PR, no revert (dev holds). Reverted.
+- Stale event (old release id): `status=stale`, no Deployment. Forged tier `dev;x`: rejected at
+  parse, run fails.
+- Revert path (simulated stg upgrade failure for kyverno-policies): `failure` Deployment in stg and
+  a revert PR (label `revert`) changing only `tiers/stg/release.yaml`. Closed (test artifact).
+- **Gaps:** test pod logs stay in-cluster only (hook pods kept until the next test run; the
+  Deployment carries Flux's message, not the logs). Re-testing a release after an automatic
+  rollback is Phase 4 (`demo:stg-rollback`).
