@@ -52,3 +52,18 @@ test_up_down_idempotent() {
   task up -- dev && task up -- dev || fail "up not idempotent"
   task down -- dev && task down -- dev || fail "down not idempotent"
 }
+
+test_repos_sync_copies_template_owned_only() {
+  tmp=$(mktemp -d); d="$tmp/promo-kyverno"
+  mkdir "$d"; cp -R "$TEMPLATE_DIR"/. "$d/"; rm -rf "$d/.git"
+  "$ROOT/scripts/customize-app.sh" "$d" kyverno
+  echo "# sentinel-values" >> "$d/chart/values.yaml"
+  echo "# sentinel-tier" >> "$d/tiers/dev/tier.yaml"
+  echo "stale" > "$d/tests/lib/lib.sh"
+  "$ROOT/scripts/repos-sync.sh" "$d"
+  grep -q sentinel-values "$d/chart/values.yaml" || fail "app-owned chart/values.yaml overwritten"
+  grep -q sentinel-tier "$d/tiers/dev/tier.yaml" || fail "app-owned tier.yaml overwritten"
+  diff -q "$TEMPLATE_DIR/tests/lib/lib.sh" "$d/tests/lib/lib.sh" >/dev/null || fail "tests/lib/lib.sh not synced"
+  ! grep -rlw example "$d/.github" "$d/scripts" "$d/tests" "$d/tiers" || fail "example left after sync"
+  (cd "$d" && ROOT="$d" tests/run.sh >/dev/null) || fail "synced repo tests fail"
+}

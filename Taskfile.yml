@@ -13,6 +13,10 @@ tasks:
     desc: Create missing app repos from promo-app-template
     cmds:
       - scripts/repos-create.sh
+  repos:sync:
+    desc: Copy template-owned files from promo-app-template into the app repos (uncommitted)
+    cmds:
+      - scripts/repos-sync.sh {{.CLI_ARGS}}
   lint:
     desc: Static tests (LIVE=1 for cluster tests)
     cmds:
