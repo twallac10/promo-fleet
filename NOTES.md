@@ -175,3 +175,25 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
 - **Gaps:** test pod logs stay in-cluster only (hook pods kept until the next test run; the
   Deployment carries Flux's message, not the logs). Re-testing a release after an automatic
   rollback is Phase 4 (`demo:stg-rollback`).
+
+### Phase 3: guardrails, environments and auto-merge, live (2026-11-09)
+- `task gh:envs` (run by the owner after reviewing `--dry-run`): 32 writes; read back auto-merge,
+  the `promotion-gate` required check, prd reviewer and main-only branch policies in all four repos.
+- Promotion chain end to end: the two stg PRs from before Phase 3 (kyverno-policies #3,
+  promo-kyverno #6) got a new commit from the next dev event, passed `promotion-gate` in stg with no
+  approval and merged themselves. stg tested OK and opened prd PRs whose gates **waited**. Approving
+  prd for promo-kyverno #7 merged it; prd upgraded to 3.9.2-4 with a `success` Deployment and no
+  further PR. Deployments created by the promote workflow still record under the main-only policy.
+- Sneaky PR (prometheus, `promote/stg` also changing `tier.yaml`): `promotion-gate` failed on files;
+  `promotion-gate` ran anyway and failed (fail-closed, live).
+- Hand-made PR (otel, `promote/prd` with a release stg never ran): failed on the release check. It
+  first *asked for prd approval* before failing (the environment came from `guardrails` even though
+  it failed); fixed: `promotion-gate` requests an environment only when `guardrails` passed.
+- Direct pushes to `main` by the owner still work (`enforce_admins: false`), reported by GitHub as a
+  bypass of the required check. Template syncs use this.
+- **A Docker restart wipes the clusters** (etcd on tmpfs): after one at 21:09 UTC every API call was
+  refused. `task down && task up` rebuilt all three tiers in ~8 min; every app re-reported, every
+  latest Deployment `success`, the stg/prd first-install race didn't recur (kyverno 3.9.2-4), and the
+  open prd PR was updated in place, its gate waiting again.
+- A GitHub outage during the first attempt made runs fail at startup with no jobs and no error in
+  the API ("workflow file issue"); the run page is the only place GitHub shows the reason.
