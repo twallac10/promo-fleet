@@ -53,4 +53,9 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
   `HelmRepository` is denied by the API server.
 - Every OCIRepository in the cluster is under `oci://ghcr.io/twallac10/charts/`.
 - kyverno-policies: all 11 policies `Audit` in dev.
-- Not yet done: 30-minute stability watch, stg and prd, idle-CPU measurement.
+### dev, 30-minute stability watch (2026-11-08 18:31–19:01)
+- 7 samples, 5 min apart, Mac kept awake with `caffeinate -i`. 26 pods, 0 restarts, nothing ever not Ready.
+- Idle CPU 0.18–0.33 core (avg ~0.24), memory 1.99–2.16 GiB. Last run (LESSONS #17, etcd on Docker disk): ~1.8 cores idle.
+- An earlier attempt was cut short when the Mac slept (18:17–18:30): `sleep` stops counting while macOS
+  sleeps, so the watch stalled. The cluster survived sleep and wake with 0 restarts.
+- Projection for 3 tiers: ~0.75 core, ~6.5 GiB of the 6 CPU / 12.5 GiB Docker VM.
