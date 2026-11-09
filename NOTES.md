@@ -63,7 +63,7 @@ Every PR to an app repo's `main` needs one check, **`promotion-gate`** (branch p
 |---|---|---|
 | `promote/<t>` | only `tiers/<t>/release.yaml` changed; it equals the previous tier's on main; that tier's latest Deployment is `success` for the same release id; sources; gitleaks | `<t>` |
 | `revert/<t>` | only `tiers/<t>/release.yaml`; it equals the file before main's last change to it; `<t>`'s latest Deployment is `failure`; sources; gitleaks | `<t>` |
-| anything else | no `release.yaml` outside the first tier (later tiers change only by promotion); sources; gitleaks | last tier it touches, or none |
+| anything else | no `release.yaml` outside the first tier (later tiers change only by promotion); sources; gitleaks | last tier it touches, or none; **the last tier** if it touches `base/` (deploys to every tier at once), `.github/` or `scripts/` |
 
 - **Approval = deploy.** Promotion, revert and mirror PRs enable squash auto-merge. dev and stg
   gates pass at once; prd's waits for your environment approval, then the PR merges itself.
@@ -71,9 +71,10 @@ Every PR to an app repo's `main` needs one check, **`promotion-gate`** (branch p
   `if: always()` and fails unless `guardrails` succeeded.
 - **No PR code runs in the gate.** It checks out `main`, reads PR files with `git show`, and
   computes release ids with main's `release-id.sh`.
-- **Branch policy is `main` + `refs/pull/*/merge`**, not main only: GitHub matches the policy
-  against the run's `GITHUB_REF`, and a PR's gate runs on its merge ref. Only a merge to `main`
-  deploys, so this doesn't widen what can deploy.
+- **The gate is `pull_request_target`**, so GitHub always runs main's `gate.yaml`; on
+  `pull_request` it would run the PR's own, which a PR could rewrite to pass. Safe because the
+  token is read-only, no secrets are passed and no PR code runs. It also means the gate's ref is
+  `main`, so environment branch policy is **main only**, as the spec asks.
 - **Revert PRs** are gated like promotions, so a forged failure event (Trust boundary) can at worst
   open a revert to the release that ran before, which still needs the tier's latest Deployment to
   be a failure, and prd's approval.

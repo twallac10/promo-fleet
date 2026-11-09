@@ -2,8 +2,8 @@
 # GitHub setup for every app repo in apps.yaml, from tiers.yaml (idempotent):
 # - repo settings: squash auto-merge, delete merged branches, secret scanning + push protection
 # - one Environment per tier; tiers with requiresApproval get you as reviewer
-#   (prevent self-review off); branch policy: main and refs/pull/*/merge (the
-#   gate job runs on the PR's merge ref)
+#   (prevent self-review off); branch policy: main only (the gate runs on main's
+#   ref via pull_request_target)
 # - branch protection on main: required check promotion-gate
 # Usage: gh-envs.sh [--dry-run]   (--dry-run prints "<METHOD> <path> <json>" per write)
 set -euo pipefail
@@ -27,9 +27,7 @@ for app in $(yq '.apps[].name' apps.yaml); do
     write PUT "$r/environments/$t" "{\"reviewers\": $reviewers, \"prevent_self_review\": false,
       \"deployment_branch_policy\": {\"protected_branches\": false, \"custom_branch_policies\": true}}"
     have=$(gh api "$r/environments/$t/deployment-branch-policies" --jq '.branch_policies[].name' 2>/dev/null || true)
-    for p in main 'refs/pull/*/merge'; do
-      echo "$have" | grep -qxF -- "$p" || write POST "$r/environments/$t/deployment-branch-policies" "{\"name\": \"$p\", \"type\": \"branch\"}"
-    done
+    echo "$have" | grep -qxF main || write POST "$r/environments/$t/deployment-branch-policies" '{"name": "main", "type": "branch"}'
   done
   write PUT "$r/branches/main/protection" '{"required_status_checks": {"strict": false, "contexts": ["promotion-gate"]},
     "enforce_admins": false, "required_pull_request_reviews": null, "restrictions": null}'
