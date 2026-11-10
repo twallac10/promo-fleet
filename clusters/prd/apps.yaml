@@ -24,6 +24,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: app-kyverno
+  dependsOn: [{name: "testkube"}]
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
@@ -50,7 +51,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: app-kyverno-policies
-  dependsOn: [{name: app-kyverno}]
+  dependsOn: [{name: app-kyverno}, {name: "testkube"}]
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
@@ -77,7 +78,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: app-prometheus
-  dependsOn: [{name: app-kyverno}, {name: "canary"}]
+  dependsOn: [{name: app-kyverno}, {name: "canary"}, {name: "testkube"}]
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
@@ -104,4 +105,4 @@ spec:
   sourceRef:
     kind: GitRepository
     name: app-otel-collector
-  dependsOn: [{name: app-kyverno}]
+  dependsOn: [{name: app-kyverno}, {name: "testkube"}]

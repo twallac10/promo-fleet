@@ -27,7 +27,7 @@ for t in $(yq '.tiers[].name' tiers.yaml); do
         .spec.wait = true |
         .spec.timeout = "10m" |
         .spec.sourceRef = {"kind": "GitRepository", "name": "app-" + strenv(APP)} |
-        .spec.dependsOn = (env(DEPS) | map({"name": (select(. == "canary" or . == "guardrails") // ("app-" + .))})) |
+        .spec.dependsOn = (env(DEPS) | map({"name": (select(. == "canary" or . == "guardrails" or . == "testkube") // ("app-" + .))})) |
         with(select(.spec.dependsOn | length == 0); del(.spec.dependsOn))'
     done
   } > "$out/$t/apps.yaml"

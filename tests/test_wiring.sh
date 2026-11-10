@@ -16,11 +16,12 @@ deps_of() {
 test_dependson_order() {
   tiers=$(tier_names)
   for t in $tiers; do
-    [ "$(deps_of "$t" app-kyverno)" = "" ] || fail "$t: kyverno has deps"
-    [ "$(deps_of "$t" app-kyverno-policies)" = "app-kyverno" ] || fail "$t: kyverno-policies deps"
+    [ "$(deps_of "$t" app-kyverno)" = "testkube" ] || fail "$t: kyverno deps: $(deps_of "$t" app-kyverno)"
+    [ "$(deps_of "$t" app-kyverno-policies)" = "app-kyverno,testkube" ] || fail "$t: kyverno-policies deps"
+    [ "$(deps_of "$t" testkube)" = "" ] || fail "$t: testkube must not depend on anything"
     [ "$(deps_of "$t" guardrails)" = "app-kyverno" ] || fail "$t: guardrails deps"
     [ "$(deps_of "$t" canary)" = "" ] || fail "$t: canary must not depend on anything"
-    [ "$(deps_of "$t" app-prometheus)" = "app-kyverno,canary" ] || fail "$t: prometheus deps: $(deps_of "$t" app-prometheus)"
+    [ "$(deps_of "$t" app-prometheus)" = "app-kyverno,canary,testkube" ] || fail "$t: prometheus deps: $(deps_of "$t" app-prometheus)"
     for a in $(yq '.apps[].name' "$ROOT/apps.yaml"); do
       p=$(yq "select(.kind==\"Kustomization\" and .metadata.name==\"app-$a\") | .spec.path" "$ROOT/clusters/$t/apps.yaml")
       [ "$p" = "./tiers/$t" ] || fail "$t: app-$a path $p"
@@ -61,4 +62,18 @@ test_guardrails_enforced_natively() {
 test_canary_digest_pinned() {
   d=$(yq .spec.ref.digest "$ROOT/canary/ocirepository.yaml")
   echo "$d" | grep -Eq '^sha256:[0-9a-f]{64}$' && ! echo "$d" | grep -q '^sha256:0\{64\}$' || fail "canary digest not pinned: $d"
+}
+
+test_testkube_values() {
+  # Behaviour tests (the signed evidence) run in Testkube; installed like the canary, chart from our GHCR.
+  hr=$(yq -o json -I0 'select(.kind=="HelmRelease")' "$ROOT/testkube/helmrelease.yaml")
+  echo "$hr" | jq -e '.metadata.namespace == "testkube" and .spec.values["testkube-api"].nats.enabled == false
+    and .spec.values["testkube-api"].nats.embedded == true' >/dev/null || fail "testkube values: $hr"
+  u=$(yq '.spec.url' "$ROOT/testkube/ocirepository.yaml"); d=$(yq '.spec.ref.digest' "$ROOT/testkube/ocirepository.yaml")
+  [ "$u" = oci://ghcr.io/twallac10/charts/testkube ] || fail "testkube OCIRepository url: $u"
+  echo "$d" | grep -Eq '^sha256:[0-9a-f]{64}$' && ! echo "$d" | grep -q '^sha256:0\{64\}$' || fail "testkube digest not pinned: $d"
+  [ "$(yq '.version' "$ROOT/testkube/source.yaml")" = 2.15.0 ] || fail "testkube version"
+  tiers=$(tier_names); for t in $tiers; do
+    yq 'select(.kind=="Kustomization" and .metadata.name=="testkube") | .spec.path' "$ROOT/clusters/$t/platform.yaml" | grep -qx './testkube' || fail "$t: no testkube Kustomization"
+  done
 }

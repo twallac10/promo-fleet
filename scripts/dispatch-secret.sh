@@ -13,7 +13,8 @@ if [ ! -s "$f" ]; then
   exit 1
 fi
 token=$(tr -d '[:space:]' < "$f")
-for app in $(yq '.apps[].name' apps.yaml); do
+# Each app's namespace (its Flux Provider) and testkube (the behaviour-test reporter).
+for app in $(yq '.apps[].name' apps.yaml) testkube; do
   APP=$app yq -n '.apiVersion = "v1" | .kind = "Namespace" | .metadata.name = strenv(APP)'
   echo ---
   APP=$app TOKEN=$token yq -n '.apiVersion = "v1" | .kind = "Secret" | .type = "Opaque" |

@@ -9,7 +9,7 @@ images=$(
     ( cd "$parent/promo-$app" && ROOT=$PWD && export ROOT && source tests/lib/lib.sh &&
       for t in $TIERS; do render "$t"; done )
   done | yq '.. | select(has("image") and (.image | type) == "!!str") | .image' | grep -v -- '---'
-  if [ -f canary/images.txt ]; then cat canary/images.txt; fi
+  for f in canary/images.txt testkube/images.txt; do [ ! -f "$f" ] || cat "$f"; done
 )
 bad=0
 for img in $(echo "$images" | sort -u); do

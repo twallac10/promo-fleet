@@ -1,0 +1,16 @@
+# Testkube: runs each app's behaviour tests (the signed promotion evidence). Not promoted.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: testkube
+  namespace: testkube
+  annotations:
+    promo.twallac10.dev/chart-version: 2.15.0
+spec:
+  interval: 1h
+  url: oci://ghcr.io/twallac10/charts/testkube
+  ref:
+    digest: sha256:5fd8a9d83b6a2d838a697ddea63da47d2f44bb08f4de928e34c8af26f003a5af
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

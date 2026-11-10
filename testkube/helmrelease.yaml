@@ -1,0 +1,20 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: testkube
+  namespace: testkube
+spec:
+  interval: 10m
+  releaseName: testkube
+  chartRef:
+    kind: OCIRepository
+    name: testkube
+  install:
+    remediation:
+      retries: 3
+  values:
+    testkube-api:
+      # NATS inside the API server: one pod fewer (spike, 2026-11-09).
+      nats:
+        enabled: false
+        embedded: true

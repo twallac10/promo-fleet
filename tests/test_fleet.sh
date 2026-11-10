@@ -76,7 +76,8 @@ test_dispatch_secret_manifests() {
     [ "$(echo "$out" | yq "select(.kind==\"Secret\" and .metadata.namespace==\"$a\" and .metadata.name==\"promo-dispatch\") | .stringData.token")" = tok-123 ] \
       || fail "Secret promo-dispatch in $a missing or wrong token"
   done
-  [ "$(echo "$out" | yq 'select(.kind=="Secret") | .metadata.name' | grep -vc -- '---')" = "$(yq '.apps | length' "$ROOT/apps.yaml")" ] || fail "want one Secret per app"
+  [ "$(echo "$out" | yq 'select(.kind=="Secret" and .metadata.namespace=="testkube") | .stringData.token')" = tok-123 ] || fail "Secret promo-dispatch in testkube (the behaviour-test reporter) missing"
+  [ "$(echo "$out" | yq 'select(.kind=="Secret") | .metadata.name' | grep -vc -- '---')" = "$(( $(yq '.apps | length' "$ROOT/apps.yaml") + 1 ))" ] || fail "want one Secret per app plus testkube"
   if err=$(PROMO_DISPATCH_DIR="$dir" "$ROOT/scripts/dispatch-secret.sh" stg 2>&1 >/dev/null); then fail "missing token file must fail"; fi
   echo "$err" | grep -q "$dir/dispatch-stg.token" || fail "error must name the token path: $err"
 }
