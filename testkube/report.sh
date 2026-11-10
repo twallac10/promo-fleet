@@ -28,11 +28,20 @@ printf '<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n<testsuite name="%
   "$APP" "$tests" "$failures" "$errors" "$cases" > "$dir/junit.xml"
 echo "junit: $tests tests, $failures failures, $errors errors"
 
-# The release these tests ran against, as the cluster has it.
+# The release these tests ran against. The run is a post-upgrade hook, so
+# helm-controller hasn't recorded the new release in status.history yet: use the
+# attempt helm-controller is making (lastAttemptedRevision*, set when it starts).
 hr="kubectl get helmrelease $APP -n $APP -o"
 release_id=$($hr "jsonpath={.metadata.annotations.event\.toolkit\.fluxcd\.io/release-id}")
-digest=$($hr "jsonpath={.status.history[0].ociDigest}")
+digest=$($hr "jsonpath={.status.lastAttemptedRevisionDigest}")
+attempted=$($hr "jsonpath={.status.lastAttemptedRevision}")
+case $digest in "sha256:${attempted##*+}"*) ;; *)
+  echo "report: chart being installed ($attempted) doesn't match its digest $digest; not reporting" >&2
+  exit 1;;
+esac
 revision=$($hr "jsonpath={.status.history[0].version}")
+# Mid-upgrade, history[0] is the previous release: this run is for the next revision.
+[ "$($hr "jsonpath={.status.history[0].chartVersion}")" = "$attempted" ] || revision=$((revision + 1))
 
 body=$(mktemp)
 printf '{"event_type":"TestReport/%s.%s","client_payload":{"app":"%s","tier":"%s","release_id":"%s","digest":"%s","revision":"%s","execution":"%s","junit_b64":"%s"}}' \

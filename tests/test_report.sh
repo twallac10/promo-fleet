@@ -52,3 +52,21 @@ test_report_template_wiring() {
   [ -z "$(yq 'select(.kind == "ServiceAccount" or .kind == "ClusterRole" or .kind == "ClusterRoleBinding") | .kind' "$t" | grep -v -- '---')" ] || fail "no shared SA or cluster-wide RBAC in promo-report.yaml"
   yq -o json -I0 '.configMapGenerator[] | select(.name=="promo-report")' "$ROOT/testkube/kustomization.yaml" | grep -q report.sh || fail "report.sh ConfigMap"
 }
+
+test_report_during_upgrade() {
+  # The check runs as a post-upgrade hook, before helm-controller records the new
+  # release in status.history: history[0] is still the previous chart.
+  d=$(mktemp -d); CURL_LOG=$(mktemp); case_file "$d" a pass
+  STUB_HISTORY_CHART=3.9.2-4+e496e919787a STUB_REVISION=4 EXPECTED=a report_env "$d" >/dev/null || fail "report failed"
+  b=$(cat "$CURL_LOG.body")
+  echo "$b" | jq -e '.client_payload.digest == "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    and .client_payload.revision == "5"' >/dev/null || fail "must report the release being installed (digest from the OCIRepository, revision 5): $b"
+}
+
+test_report_refuses_mismatched_chart() {
+  # The OCIRepository and the chart helm-controller is installing must agree.
+  d=$(mktemp -d); CURL_LOG=$(mktemp); case_file "$d" a pass
+  if err=$(STUB_ATTEMPTED=3.9.2-5+deadbeef0000 EXPECTED=a report_env "$d" 2>&1); then fail "mismatched chart reported"; fi
+  echo "$err" | grep -q 'deadbeef0000' || fail "error must show the chart: $err"
+  [ ! -s "$CURL_LOG.body" ] || fail "nothing may be sent"
+}
