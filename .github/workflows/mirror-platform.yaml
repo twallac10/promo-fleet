@@ -24,7 +24,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
         run: |
-          dest=oci://ghcr.io/twallac10/charts
+          dest=oci://ghcr.io/twallac10/charts; mkdir -p dist
           echo "$GH_TOKEN" | helm registry login ghcr.io -u "$ACTOR" --password-stdin
           for s in */source.yaml; do
             ver=$(yq .version "$s"); src=$(yq '.upstream // ""' "$s")
