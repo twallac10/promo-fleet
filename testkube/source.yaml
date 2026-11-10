@@ -1,0 +1,4 @@
+# Upstream Testkube chart, copied into our GHCR by .github/workflows/mirror-platform.yaml.
+repo: https://kubeshop.github.io/helm-charts
+chart: testkube
+version: 2.15.0

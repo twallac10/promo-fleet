@@ -1,0 +1,44 @@
+# Copy the upstream charts of the platform pieces (canary/, testkube/) into our
+# GHCR prefix, unchanged. source.yaml gives either `upstream: oci://...` or
+# `repo: https://...` + `chart:`, and `version:`. Never moves a tag: an existing
+# version is left alone. Prints each digest to pin in <dir>/ocirepository.yaml.
+name: mirror-platform
+on:
+  push:
+    branches: [main]
+    paths: ["*/source.yaml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: Mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          dest=oci://ghcr.io/twallac10/charts
+          echo "$GH_TOKEN" | helm registry login ghcr.io -u "$ACTOR" --password-stdin
+          for s in */source.yaml; do
+            ver=$(yq .version "$s"); src=$(yq '.upstream // ""' "$s")
+            if [ -n "$src" ]; then name=${src##*/}; pull=("$src"); else name=$(yq .chart "$s"); pull=("$name" --repo "$(yq .repo "$s")"); fi
+            if out=$(helm show chart "$dest/$name" --version "$ver" 2>&1); then
+              echo "## $name $ver (already mirrored)" >> "$GITHUB_STEP_SUMMARY"
+              helm pull "$dest/$name" --version "$ver" -d "$RUNNER_TEMP" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+            elif echo "$out" | grep -q ': not found$'; then
+              helm pull "${pull[@]}" --version "$ver" -d dist
+              echo "## $name $ver (pushed)" >> "$GITHUB_STEP_SUMMARY"
+              helm push "dist/$name-$ver.tgz" "$dest" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              # Any other error (network, auth) must not be read as "absent": pushing would move the tag.
+              echo "::error::cannot tell whether $name:$ver exists: $out"
+              exit 1
+            fi
+          done

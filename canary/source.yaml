@@ -1,3 +1,3 @@
-# Upstream canary chart, copied into our GHCR by .github/workflows/mirror-canary.yaml.
+# Upstream canary chart, copied into our GHCR by .github/workflows/mirror-platform.yaml.
 upstream: oci://ghcr.io/stefanprodan/charts/podinfo
 version: 6.17.0
