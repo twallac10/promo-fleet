@@ -48,7 +48,7 @@ test_report_template_wiring() {
   t="$ROOT/testkube/promo-report.yaml"; [ -f "$t" ] || fail "missing $t"
   [ "$(yq 'select(.kind=="TestWorkflowTemplate") | .metadata.name' "$t")" = promo-report ] || fail "template name"
   [ "$(yq 'select(.kind=="TestWorkflowTemplate") | .spec.steps[0].condition' "$t")" = always ] || fail "report step must run always"
-  yq -e 'select(.kind=="ClusterRole") | .rules[] | select(.resources[] == "helmreleases") | .verbs[] | select(. == "get")' "$t" >/dev/null || fail "RBAC: get helmreleases"
-  [ "$(yq 'select(.kind=="ServiceAccount") | .metadata.name + "/" + .metadata.namespace' "$t")" = promo-behaviour/testkube ] || fail "service account"
+  # Each app chart brings its own test ServiceAccount, scoped to its own HelmRelease.
+  [ -z "$(yq 'select(.kind == "ServiceAccount" or .kind == "ClusterRole" or .kind == "ClusterRoleBinding") | .kind' "$t" | grep -v -- '---')" ] || fail "no shared SA or cluster-wide RBAC in promo-report.yaml"
   yq -o json -I0 '.configMapGenerator[] | select(.name=="promo-report")' "$ROOT/testkube/kustomization.yaml" | grep -q report.sh || fail "report.sh ConfigMap"
 }

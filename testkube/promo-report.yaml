@@ -1,6 +1,7 @@
 # Shared last step of every app's behaviour TestWorkflow: runs testkube/report.sh
 # even when checks failed, so every run's JUnit reaches the app repo.
-# Use from an app TestWorkflow (pod.serviceAccountName: promo-behaviour):
+# Use from an app TestWorkflow, whose service account (promo-behaviour-<app>, from
+# the app chart) may get the app's own HelmRelease:
 #   - template: {name: promo-report, config: {app: <app>, tier: <tier>, expected: "<check> ..."}}
 apiVersion: testworkflows.testkube.io/v1
 kind: TestWorkflowTemplate
@@ -34,32 +35,3 @@ spec:
       shell: mkdir -p /data/junit && sh /data/report.sh
       artifacts:
         paths: [/data/junit/junit.xml]
----
-# Identity for the behaviour test pods: the report step reads the app's HelmRelease.
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: promo-behaviour
-  namespace: testkube
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: promo-report
-rules:
-  - apiGroups: [helm.toolkit.fluxcd.io]
-    resources: [helmreleases]
-    verbs: [get]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: promo-report
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: promo-report
-subjects:
-  - kind: ServiceAccount
-    name: promo-behaviour
-    namespace: testkube

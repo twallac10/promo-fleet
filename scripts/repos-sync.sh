@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # Template-owned paths, relative to the repo root. Globs expand in the template.
-OWNED=".github/workflows scripts tests/lib tests/run.sh tests/test_chart.sh tests/test_mirror.sh
+OWNED=".github/workflows scripts tests/lib tests/run.sh tests/test_chart.sh tests/test_mirror.sh tests/test_behaviour.sh chart/templates/_behaviour.tpl
   tests/test_tiers.sh tests/test_release.sh tests/test_notify.sh tests/test_gate.sh tiers/*/kustomization.yaml tiers/*/notify.yaml"
 template=${TEMPLATE_DIR:-$(cd .. && pwd)/promo-app-template}
 dirs="$*"
