@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Test stub for kubectl (report.sh): answers the HelmRelease jsonpath reads.
+case "$*" in
+  *release-id*) echo "${STUB_RELEASE_ID:-sha256:1111111111111111111111111111111111111111111111111111111111111111}";;
+  *ociDigest*) echo "${STUB_DIGEST:-sha256:2222222222222222222222222222222222222222222222222222222222222222}";;
+  *history\[0\].version*) echo "${STUB_REVISION:-3}";;
+  *) echo "kubectl stub: unexpected: $*" >&2; exit 1;;
+esac

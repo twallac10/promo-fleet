@@ -4,3 +4,10 @@ resources:
   - namespace.yaml
   - ocirepository.yaml
   - helmrelease.yaml
+  - promo-report.yaml
+configMapGenerator:
+  - name: promo-report
+    namespace: testkube
+    files: [report.sh]
+    options:
+      disableNameSuffixHash: true

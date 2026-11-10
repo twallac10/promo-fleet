@@ -1,0 +1,65 @@
+# Shared last step of every app's behaviour TestWorkflow: runs testkube/report.sh
+# even when checks failed, so every run's JUnit reaches the app repo.
+# Use from an app TestWorkflow (pod.serviceAccountName: promo-behaviour):
+#   - template: {name: promo-report, config: {app: <app>, tier: <tier>, expected: "<check> ..."}}
+apiVersion: testworkflows.testkube.io/v1
+kind: TestWorkflowTemplate
+metadata:
+  name: promo-report
+  namespace: testkube
+spec:
+  config:
+    app: {type: string}
+    tier: {type: string}
+    expected: {type: string}
+  steps:
+    - name: report results
+      condition: always
+      container:
+        image: alpine/kubectl:1.37.2@sha256:1a7fc3308a8eee1c8bd177930fc521088c6dc64ad8b68c88319151fd87d79deb
+        env:
+          - {name: APP, value: "{{ config.app }}"}
+          - {name: TIER, value: "{{ config.tier }}"}
+          - {name: EXPECTED, value: "{{ config.expected }}"}
+          - {name: EXECUTION, value: "{{ execution.id }}"}
+          - {name: JUNIT_DIR, value: /data/junit}
+          - name: GH_DISPATCH_TOKEN
+            valueFrom:
+              secretKeyRef: {name: promo-dispatch, key: token}
+      content:
+        files:
+          - path: /data/report.sh
+            contentFrom:
+              configMapKeyRef: {name: promo-report, key: report.sh}
+      shell: mkdir -p /data/junit && sh /data/report.sh
+      artifacts:
+        paths: [/data/junit/junit.xml]
+---
+# Identity for the behaviour test pods: the report step reads the app's HelmRelease.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: promo-behaviour
+  namespace: testkube
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: promo-report
+rules:
+  - apiGroups: [helm.toolkit.fluxcd.io]
+    resources: [helmreleases]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: promo-report
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: promo-report
+subjects:
+  - kind: ServiceAccount
+    name: promo-behaviour
+    namespace: testkube

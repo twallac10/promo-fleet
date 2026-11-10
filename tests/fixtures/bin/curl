@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Test stub for curl (report.sh): records the arguments and request body; fails if CURL_FAIL=1.
+printf '%s\n' "$@" > "$CURL_LOG.args"
+while [ $# -gt 0 ]; do case $1 in --data-binary|-d) shift; case $1 in @*) cat "${1#@}" > "$CURL_LOG.body";; *) printf '%s' "$1" > "$CURL_LOG.body";; esac;; esac; shift; done
+[ "${CURL_FAIL:-0}" = 1 ] && { echo "curl: (22) The requested URL returned error: 404" >&2; exit 22; }
+exit 0
