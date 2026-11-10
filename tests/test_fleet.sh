@@ -81,3 +81,13 @@ test_dispatch_secret_manifests() {
   if err=$(PROMO_DISPATCH_DIR="$dir" "$ROOT/scripts/dispatch-secret.sh" stg 2>&1 >/dev/null); then fail "missing token file must fail"; fi
   echo "$err" | grep -q "$dir/dispatch-stg.token" || fail "error must name the token path: $err"
 }
+
+test_retest_manifest() {
+  # task retest -- <tier> <app>: a fresh behaviour run for the app's current release.
+  out=$("$ROOT/scripts/retest.sh" --dry-run dev prometheus) || fail "dry run failed: $out"
+  echo "$out" | yq -e '.kind == "TestWorkflowExecution" and .metadata.namespace == "testkube"
+    and .spec.testWorkflow.name == "prometheus-behaviour"' >/dev/null || fail "manifest: $out"
+  echo "$out" | yq '.metadata.name' | grep -Eq '^prometheus-behaviour-retest-[0-9]{10}$' || fail "name: $(echo "$out" | yq .metadata.name)"
+  if "$ROOT/scripts/retest.sh" --dry-run dev nosuchapp >/dev/null 2>&1; then fail "unknown app accepted"; fi
+  if "$ROOT/scripts/retest.sh" --dry-run qa prometheus >/dev/null 2>&1; then fail "unknown tier accepted"; fi
+}
