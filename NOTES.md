@@ -21,10 +21,10 @@ and open the next tier's PR only when every cluster in the tier has a `success` 
 same `release.yaml` commit. Any `failure` in the tier blocks promotion.
 
 ## Notifications and the dispatch token
-- Each app repo's `tiers/<tier>/notify.yaml` holds a `githubdispatch` Provider and two Alerts on that
-  tier's HelmRelease: `promote-success` (info, `^Helm test succeeded`, fires after tests on install
-  and upgrade) and `promote-failure` (error, `^Helm (install|upgrade|test) failed`). Both add
-  `tier` and `app` to the event metadata. `notify.yaml` is tier-only and never promoted.
+- Each app repo's `tiers/<tier>/notify.yaml` holds a `githubdispatch` Provider and an Alert on that tier's
+  HelmRelease: `promote-failure` (error, `^Helm (install|upgrade|test) failed`), adding `tier` and
+  `app` to the event metadata. Success comes from the behaviour tests (Test evidence); the
+  `promote-success` Alert of Phase 2 is gone. `notify.yaml` is tier-only and never promoted.
 - **Release id.** Each `release.yaml` sets the HelmRelease annotation
   `event.toolkit.fluxcd.io/release-id`: a sha256 of the file without that annotation
   (`scripts/release-id.sh` in each app repo). Flux copies `event.toolkit.fluxcd.io/` annotations into
@@ -80,16 +80,43 @@ Every PR to an app repo's `main` needs one check, **`promotion-gate`** (branch p
   be a failure, and prd's approval.
 - Labels are informational; the gate goes by branch name, which only people with push access set.
 
-## Richer evidence (design, not built)
-Today the evidence is the Helm tests. To add Prometheus/Dynatrace queries or Testkube runs:
-- Add a **verification Kustomization** per app per tier (`verify-<app>`), `dependsOn` the app's
-  Kustomization, that applies the checks (a Job, a Testkube TestWorkflow or a HelmReleaseTest) and
-  health-checks their result with Flux CEL health checks.
-- Name Jobs per release (suffix: the release id's first 12 hex chars) so each release re-runs them;
-  Jobs are immutable.
-- Move `promote-success` from the HelmRelease to the verification Kustomization: it's the first
-  document in `notify.yaml`, marked as the swappable evidence source. Carry the release id on the
-  Kustomization (same annotation). **The promote workflow doesn't change.**
+## Test evidence (signed, Testkube)
+Promotion follows **behaviour tests**, not Helm smoke tests. Each wrapper chart ships a Testkube
+`TestWorkflow` (`<app>-behaviour`, checks in `chart/templates/behaviour.yaml`, shared machinery in
+`_behaviour.tpl`) and a post-install/post-upgrade hook `TestWorkflowExecution`
+(`<app>-behaviour-r<revision>`), so every Helm revision runs once. Its last step, the
+`promo-report` template (`testkube/report/`), builds one JUnit file (a check that never reported is
+an `<error>`) and sends it to the app repo as `repository_dispatch` `TestReport/<app>.<app>`.
+- **The promote workflow** (promo-workflows v0.6.0) checks the report against `main` (chart digest
+  and release id), attaches `junit.xml` to the chart digest in GHCR (`oras attach`, artifact type
+  `application/vnd.promo.junit.v1+xml`), signs a `https://in-toto.io/attestation/test-result/v0.1`
+  attestation on the chart digest (`actions/attest`, Sigstore keyless, logged in Rekor), records the
+  Deployment and opens the next tier's PR only on PASSED.
+- **The gate** (`check-attestation`) runs `gh attestation verify` for the PR's chart digest, accepts
+  only the signer `twallac10/promo-workflows/.github/workflows/promote.yaml@refs/tags/v*` from the
+  app repo's `refs/heads/main`, keeps entries for the source tier and the PR's release id, and takes
+  the newest by Rekor time: it must be PASSED. Revert PRs keep the Deployment check.
+- **Smoke tests** still gate the HelmRelease (readiness only); a smoke failure still records a
+  `failure` Deployment (Alert `promote-failure`). Smoke success no longer records anything.
+- **Re-run:** `task retest -- <tier> <app>` applies a new execution for the running release; the
+  newest result for (tier, release) counts.
+- **Proves:** the promote workflow (exact identity, in Rekor) received these results for this digest
+  and release and checked them against `main`. An attestation signed by anything else (another
+  workflow, branch, repo or a laptop) is ignored, even if it is newer and says PASSED.
+- **Doesn't prove:** that the cluster produced them. A dispatch-token holder can still send fake
+  results and the workflow would sign them (see Trust boundary). The JUnit artifact in GHCR is for
+  people; the gate never reads it.
+- **On AKS:** sign in the cluster instead, with workload identity (Sigstore keyless from the
+  cluster's OIDC issuer) or an in-cluster key, and accept that identity in the gate.
+- **Verify by hand:**
+  ```
+  gh attestation verify oci://ghcr.io/twallac10/charts/promo-<app>@<digest> -R twallac10/promo-<app> \
+    --predicate-type https://in-toto.io/attestation/test-result/v0.1 --source-ref refs/heads/main \
+    --cert-identity-regex '^https://github\.com/twallac10/promo-workflows/\.github/workflows/promote\.yaml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$' \
+    --format json | jq '.[].verificationResult.statement.predicate | {result, failedTests, configuration}'
+  ```
+- **Ordering:** apps depend on `testkube-report`, which depends on `testkube`. The report template is
+  a Testkube kind, so it can only be applied after the Testkube chart has installed the CRDs.
 
 ## Upstream inventory (pins as of 2026-11-08)
 Rendered with the intended lightweight values (Kyverno background + cleanup controllers off;
@@ -197,3 +224,34 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
   open prd PR was updated in place, its gate waiting again.
 - A GitHub outage during the first attempt made runs fail at startup with no jobs and no error in
   the API ("workflow file issue"); the run page is the only place GitHub shows the reason.
+
+### Test evidence, live (2026-11-10 to 2026-11-13)
+- Every app reaches stg on signed dev evidence (prometheus 29.45.1-3, otel-collector 0.178.2-2,
+  kyverno 3.9.2-5, kyverno-policies 3.9.2-5); stg PR gates log `attestation=dev PASSED`.
+- **Fresh prd** (`task down -- prd && task up -- prd`, 2026-11-13): Testkube installs before any policy,
+  its volumes bind, then the apps; kyverno-policies, prometheus and otel-collector each got a prd
+  `PASSED` attestation and a `success` Deployment within a minute of install. kyverno runs 3.9.2-4 in
+  prd, which predates behaviour tests, so it has none until 3.9.2-5 is approved.
+- **Found on that fresh prd:** the `testkube` Kustomization failed its dry-run on an empty cluster
+  (the report template's kind came from the chart in the same Kustomization). Fixed with
+  `testkube-report` (see Test evidence, Ordering). Running tiers never hit it.
+- **Earlier, in a running prd:** adding Testkube to a tier that already enforces kyverno-policies
+  stalled: kind's local-path provisioner was denied hostPath, so Testkube's volumes stayed Pending,
+  and the exemption (kyverno-policies 3.9.2-4+) could not arrive because apps wait on Testkube. A
+  fresh tier doesn't have this order problem. Rolling Testkube into an existing enforcing cluster
+  needs the exemption first.
+- **Ready but broken** (prometheus dev, canary scrape job dropped): smoke PASSED, behaviour FAILED
+  (`canary-target-up`), a FAILED attestation, a `failure` Deployment, no stg PR. Restored: PASSED.
+  (The first try, on 29.45.1-2, passed wrongly: the check queried before Prometheus reloaded its
+  config. 29.45.1-3 checks the loaded config.)
+- **Retest:** `task retest -- dev prometheus` added a newer PASSED attestation for the same release;
+  the gate's check picked it.
+- **Forgery:** a workflow on a branch of promo-prometheus (`forge.yaml@refs/heads/forge/attest`)
+  signed a PASSED attestation for the broken dev release, newer than its genuine FAILED one. It is a
+  valid Sigstore bundle (`gh attestation verify -R` alone accepts it). A hand-made `promote/stg` PR
+  for that release failed `guardrails`: "dev's latest behaviour tests … FAILED (canary-target-up)".
+- **Footprint, 3 tiers with Testkube:** ~10.3 GiB in Docker (`docker stats`; containers' working
+  set ~8.5 GiB), ~0.45 core idle. Testkube itself (api-server, MongoDB, MinIO) is 0.3–0.4 GiB per tier.
+- **Testkube startup restarts:** its api-server restarts 4–5 times on install while MongoDB
+  starts ("could not ping MongoDB"), then stays up. Harmless; executions queued meanwhile run once
+  it's up.
