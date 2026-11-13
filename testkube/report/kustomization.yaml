@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - promo-report.yaml
+configMapGenerator:
+  - name: promo-report
+    namespace: testkube
+    files: [report.sh]
+    options:
+      disableNameSuffixHash: true

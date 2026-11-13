@@ -1,7 +1,7 @@
-# testkube/report.sh: the last step of every behaviour TestWorkflow (template promo-report).
+# testkube/report/report.sh: the last step of every behaviour TestWorkflow (template promo-report).
 report_env() { # <junit dir> -> runs report.sh with stubs; prints stdout
   PATH="$ROOT/tests/fixtures/bin:$PATH" APP=kyverno TIER=dev EXECUTION=exec-1 JUNIT_DIR="$1" \
-    GH_DISPATCH_TOKEN=tok CURL_LOG="$CURL_LOG" sh "$ROOT/testkube/report.sh"
+    GH_DISPATCH_TOKEN=tok CURL_LOG="$CURL_LOG" sh "$ROOT/testkube/report/report.sh"
 }
 case_file() { printf '<testcase name="%s" time="1"%s\n' "$2" "$([ "$3" = pass ] && echo '/>' || echo '><failure message="boom"/></testcase>')" > "$1/$2.xml"; }
 
@@ -45,12 +45,12 @@ test_report_fails_loudly_when_dispatch_fails() {
 }
 
 test_report_template_wiring() {
-  t="$ROOT/testkube/promo-report.yaml"; [ -f "$t" ] || fail "missing $t"
+  t="$ROOT/testkube/report/promo-report.yaml"; [ -f "$t" ] || fail "missing $t"
   [ "$(yq 'select(.kind=="TestWorkflowTemplate") | .metadata.name' "$t")" = promo-report ] || fail "template name"
   [ "$(yq 'select(.kind=="TestWorkflowTemplate") | .spec.steps[0].condition' "$t")" = always ] || fail "report step must run always"
   # Each app chart brings its own test ServiceAccount, scoped to its own HelmRelease.
   [ -z "$(yq 'select(.kind == "ServiceAccount" or .kind == "ClusterRole" or .kind == "ClusterRoleBinding") | .kind' "$t" | grep -v -- '---')" ] || fail "no shared SA or cluster-wide RBAC in promo-report.yaml"
-  yq -o json -I0 '.configMapGenerator[] | select(.name=="promo-report")' "$ROOT/testkube/kustomization.yaml" | grep -q report.sh || fail "report.sh ConfigMap"
+  yq -o json -I0 '.configMapGenerator[] | select(.name=="promo-report")' "$ROOT/testkube/report/kustomization.yaml" | grep -q report.sh || fail "report.sh ConfigMap"
 }
 
 test_report_during_upgrade() {

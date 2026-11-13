@@ -16,12 +16,15 @@ deps_of() {
 test_dependson_order() {
   tiers=$(tier_names)
   for t in $tiers; do
-    [ "$(deps_of "$t" app-kyverno)" = "testkube" ] || fail "$t: kyverno deps: $(deps_of "$t" app-kyverno)"
-    [ "$(deps_of "$t" app-kyverno-policies)" = "app-kyverno,testkube" ] || fail "$t: kyverno-policies deps"
+    [ "$(deps_of "$t" app-kyverno)" = "testkube-report" ] || fail "$t: kyverno deps: $(deps_of "$t" app-kyverno)"
+    [ "$(deps_of "$t" app-kyverno-policies)" = "app-kyverno,testkube-report" ] || fail "$t: kyverno-policies deps"
     [ "$(deps_of "$t" testkube)" = "" ] || fail "$t: testkube must not depend on anything"
+    # The report template is a Testkube kind: it can only be applied (dry-run) once
+    # the testkube HelmRelease has installed the CRDs, so it is a separate step.
+    [ "$(deps_of "$t" testkube-report)" = "testkube" ] || fail "$t: testkube-report must depend on testkube"
     [ "$(deps_of "$t" guardrails)" = "app-kyverno" ] || fail "$t: guardrails deps"
     [ "$(deps_of "$t" canary)" = "" ] || fail "$t: canary must not depend on anything"
-    [ "$(deps_of "$t" app-prometheus)" = "app-kyverno,canary,testkube" ] || fail "$t: prometheus deps: $(deps_of "$t" app-prometheus)"
+    [ "$(deps_of "$t" app-prometheus)" = "app-kyverno,canary,testkube-report" ] || fail "$t: prometheus deps: $(deps_of "$t" app-prometheus)"
     for a in $(yq '.apps[].name' "$ROOT/apps.yaml"); do
       p=$(yq "select(.kind==\"Kustomization\" and .metadata.name==\"app-$a\") | .spec.path" "$ROOT/clusters/$t/apps.yaml")
       [ "$p" = "./tiers/$t" ] || fail "$t: app-$a path $p"
@@ -75,5 +78,17 @@ test_testkube_values() {
   [ "$(yq '.version' "$ROOT/testkube/source.yaml")" = 2.15.0 ] || fail "testkube version"
   tiers=$(tier_names); for t in $tiers; do
     yq 'select(.kind=="Kustomization" and .metadata.name=="testkube") | .spec.path' "$ROOT/clusters/$t/platform.yaml" | grep -qx './testkube' || fail "$t: no testkube Kustomization"
+  done
+}
+
+test_testkube_install_has_no_testkube_kinds() {
+  # On an empty cluster the Testkube CRDs come from the HelmRelease; a Testkube
+  # object in the same Kustomization fails its dry-run and nothing installs.
+  out=$(kubectl kustomize "$ROOT/testkube") || fail "kustomize testkube"
+  [ -z "$(echo "$out" | yq 'select(.apiVersion | test("testkube\.io")) | .kind' | grep -v -- '---')" ] || fail "testkube/ must not contain Testkube kinds"
+  out=$(kubectl kustomize "$ROOT/testkube/report") || fail "kustomize testkube/report"
+  echo "$out" | yq -e 'select(.kind=="TestWorkflowTemplate") | .metadata.name == "promo-report"' >/dev/null || fail "testkube/report: no promo-report template"
+  for t in $(tier_names); do
+    yq 'select(.kind=="Kustomization" and .metadata.name=="testkube-report") | .spec.path' "$ROOT/clusters/$t/platform.yaml" | grep -qx './testkube/report' || fail "$t: no testkube-report Kustomization"
   done
 }

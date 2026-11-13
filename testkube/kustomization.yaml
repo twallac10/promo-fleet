@@ -1,13 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+# Testkube itself (its chart brings the CRDs). Testkube objects go in report/,
+# a separate Flux Kustomization: they can't be dry-run before the CRDs exist.
 resources:
   - namespace.yaml
   - ocirepository.yaml
   - helmrelease.yaml
-  - promo-report.yaml
-configMapGenerator:
-  - name: promo-report
-    namespace: testkube
-    files: [report.sh]
-    options:
-      disableNameSuffixHash: true

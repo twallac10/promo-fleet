@@ -1,16 +1,16 @@
 # Promoted platform apps. Each has its own repo made from promo-app-template.
 # The app's namespace is its name. dependsOn names other apps or the platform
-# Kustomizations `canary`, `guardrails` and `testkube` in this repo.
+# Kustomizations `canary`, `guardrails` and `testkube-report` in this repo.
 apps:
   - name: kyverno
     repo: promo-kyverno
-    dependsOn: [testkube]
+    dependsOn: [testkube-report]
   - name: kyverno-policies
     repo: promo-kyverno-policies
-    dependsOn: [kyverno, testkube]
+    dependsOn: [kyverno, testkube-report]
   - name: prometheus
     repo: promo-prometheus
-    dependsOn: [kyverno, canary, testkube]
+    dependsOn: [kyverno, canary, testkube-report]
   - name: otel-collector
     repo: promo-otel-collector
-    dependsOn: [kyverno, testkube]
+    dependsOn: [kyverno, testkube-report]

@@ -1,4 +1,4 @@
-# Shared last step of every app's behaviour TestWorkflow: runs testkube/report.sh
+# Shared last step of every app's behaviour TestWorkflow: runs testkube/report/report.sh
 # even when checks failed, so every run's JUnit reaches the app repo.
 # Use from an app TestWorkflow, whose service account (promo-behaviour-<app>, from
 # the app chart) may get the app's own HelmRelease:

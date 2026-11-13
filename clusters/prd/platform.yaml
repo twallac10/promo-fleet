@@ -31,7 +31,7 @@ spec:
     kind: GitRepository
     name: flux-system
 ---
-# Testkube: behaviour tests for every app (the evidence the gate verifies). Apps depend on it.
+# Testkube: behaviour tests for every app (the evidence the gate verifies).
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -46,3 +46,22 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+---
+# promo-report, the shared last step of behaviour TestWorkflows. A Testkube kind,
+# so it is applied after testkube has installed the CRDs. Apps depend on it.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: testkube-report
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./testkube/report
+  prune: true
+  wait: true
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: testkube
