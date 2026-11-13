@@ -253,5 +253,5 @@ Kyverno hooks besides tests: `migrate-resources` Job (post-upgrade, kyverno-cli)
 - **Footprint, 3 tiers with Testkube:** ~10.3 GiB in Docker (`docker stats`; containers' working
   set ~8.5 GiB), ~0.45 core idle. Testkube itself (api-server, MongoDB, MinIO) is 0.3–0.4 GiB per tier.
 - **Testkube startup restarts:** its api-server restarts 4–5 times on install while MongoDB
-  starts ("could not ping MongoDB"), then stays up. Harmless; executions queued meanwhile run once
-  it's up.
+  starts ("could not ping MongoDB"), then stays up. Apps install only after Testkube is Ready, so no
+  execution starts during that window.
